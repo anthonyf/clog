@@ -21,8 +21,6 @@
     ((list :init body)
      (let ((h1 (clog:create-element body "h1" :content "Multi-roids Game")))
        (declare (ignore h1)))
-     
-     (break)
 
      (send-message *game* (list :join-game player)))
 

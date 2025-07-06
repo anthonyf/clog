@@ -7,7 +7,7 @@
 ;;;                             :name "hello-actor"
 ;;;                             :behavior (lambda (actor msg)
 ;;;                                         (when (eq msg :quit)
-;;;                                           (setf (quitp actor) t))
+;;;                                           (quit-actor actor))
 ;;;                                         (format t "hello ~A" msg)
 ;;;                                         (terpri)))))
 ;;;   (send-message hello :bob)
@@ -23,7 +23,7 @@
            #:spawn-actor
            #:send-message
            #:recieve-message
-           #:quitp))
+           #:quit-actor))
 
 (in-package #:clog-demo-5/actor)
 
@@ -35,7 +35,7 @@
    (lock)
    (message-ready)
    (thread :initform nil)
-   (quitp :initform nil :accessor quitp)
+   (quitp :initform nil)
    ;; front and back lists for efficient queue
    (queue-front :initform nil)
    (queue-back :initform nil)))
@@ -51,7 +51,7 @@
   (with-slots (lock message-ready behavior name quitp thread) actor
     (loop
       (when quitp
-        (format t "thread ~A quitting" name)
+        (format t "actor ~A quitting" name)
         (setf thread nil)
         (return))
       (let ((msg (recieve-message actor)))
@@ -65,6 +65,14 @@
           (bt:make-thread
            (lambda () (run-actor actor))
            :name (format nil "~A-~A" name "thread")))))
+
+(defmethod quit-actor ((actor actor))
+  "Quits the actor, stops the thread if it is running"
+  (with-slots (quitp lock name message-ready) actor
+    (bt:with-lock-held (lock)
+      (format t "quitting actor ~A~%" name)
+      (setf quitp t)
+      (bt:condition-notify message-ready))))
 
 (defmethod send-message ((actor actor) msg)
   (with-slots (lock message-ready thread queue-front queue-back) actor
@@ -88,5 +96,5 @@
                  queue-back '())
            (return (recieve-message actor)))
           (t
-           (format t "waiting for next message")
+           (format t "waiting for next message~%")
            (bt:condition-wait message-ready lock)))))))

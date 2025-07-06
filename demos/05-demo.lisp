@@ -1,4 +1,5 @@
 (asdf:load-system "trivia")
+(asdf:load-system "str")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (loop for file in (list "actor.lisp" "game-actor.lisp" "player-actor.lisp")
@@ -30,11 +31,9 @@
 
 (defun start-demo (&key (host "0.0.0.0") (port *clog-port*))
   (when *game*
-    (setf (quitp *game*) t))
+    (quit-actor *game*))
 
   (setf *game* (make-instance 'game-actor :name "game-actor"))
-
-  (break "Starting Clog Demo 5...")
 
   (send-message *game* :start-game)
   (spawn-actor *game*)

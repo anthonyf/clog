@@ -18,6 +18,7 @@
 (uiop:define-package  #:clog-demo-5/actor
   (:use #:cl)
   (:export #:actor
+           #:behavior
            #:run-actor
            #:spawn-actor
            #:send-message

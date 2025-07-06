@@ -1,14 +1,17 @@
 (asdf:load-system "trivia")
 
-(eval-when (:load-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (loop for file in (list "actor.lisp" "game-actor.lisp" "player-actor.lisp")
         do (load (merge-pathnames
-                  (format nil "05-demo/~A" file) *load-truename*))))
+                  (format nil "05-demo/~A" file)
+                  (or *load-truename*
+                      *compile-file-truename*)))))
 
 (uiop:define-package #:clog-demo-5
   (:mix #:cl
         #:clog
         #:trivia
+        #:clog-demo-5/actor
         #:clog-demo-5/game-actor
         #:clog-demo-5/player-actor)
   (:export #:start-demo))
@@ -21,8 +24,7 @@
 
 
 (defun on-new-window (body)
-  (let ((player (make-instance 'player-actor :name (string (gensym))
-                               :behavior 'player-behavior)))
+  (let ((player (make-instance 'player-actor :name (string (gensym)))))
     (send-message player (list :init body))
     (run-actor player)))
 
@@ -30,11 +32,19 @@
   (when *game*
     (setf (quitp *game*) t))
 
-  (setf *game* (make-instance 'game-actor :name "game-actor"
-                                    :behavior 'game-behavior))
+  (setf *game* (make-instance 'game-actor :name "game-actor"))
+
+  (break "Starting Clog Demo 5...")
 
   (send-message *game* :start-game)
   (spawn-actor *game*)
 
   (initialize 'on-new-window :host host :port port)
   (open-browser))
+
+#+nil
+(loop for thread in (bt:all-threads)
+      when (or (str:starts-with? "game-actor" (bt:thread-name thread))
+	       (str:starts-with? "player-actor" (bt:thread-name thread)))
+	do (format t "killing thread ~A~%" (bt:thread-name thread))
+	   (bt:destroy-thread thread))

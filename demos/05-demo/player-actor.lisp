@@ -13,8 +13,7 @@
 (in-package #:clog-demo-5/player-actor)
 
 (defclass player-actor (actor)
-  ((name :accessor name
-	 :initarg :name)))
+  ((behavior :initform 'player-behavior)))
 
 (defun player-behavior (player msg)
   (match msg
@@ -22,6 +21,9 @@
     ((list :init body)
      (let ((h1 (clog:create-element body "h1" :content "Multi-roids Game")))
        (declare (ignore h1)))
+     
+     (break)
+
      (send-message *game* (list :join-game player)))
 
     (t (error "unknow message ~A" msg))))

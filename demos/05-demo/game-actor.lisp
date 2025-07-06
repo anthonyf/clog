@@ -10,11 +10,12 @@
 
 (in-package #:clog-demo-5/game-actor)
 
-(defparameter *game* nil
+(defvar *game* nil
   "Singleton game actor instance.")
 
 (defclass game-actor (actor)
-  ((players :initform nil)))
+  ((behavior :initform 'game-behavior)
+   (players :initform nil)))
 
 (defun game-behavior (game msg)
   (with-slots (players) game
@@ -22,7 +23,7 @@
 
       (:start-game
        (format t "game started"))
-      
+
       ((list :join-game player)
        (pushnew player players))
 

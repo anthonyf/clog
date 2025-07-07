@@ -18,22 +18,26 @@
 (uiop:define-package  #:clog-demo-5/actor
   (:use #:cl)
   (:export #:actor
+           #:name
            #:behavior
            #:run-actor
            #:spawn-actor
            #:send-message
            #:recieve-message
-           #:quit-actor))
+           #:quit-actor
+           #:should-quit-p))
 
 (in-package #:clog-demo-5/actor)
 
 (defclass actor ()
   ((name :initarg :name
-         :initform (error "actor must have a name!"))
+         :initform (error "actor must have a name!")
+         :reader name)
    (behavior :initarg :behavior
              :initform (error "actor must have behavior"))
    (lock)
    (message-ready)
+   (wait-timeout :initform 1)
    (thread :initform nil)
    (quitp :initform nil)
    ;; front and back lists for efficient queue
@@ -46,16 +50,26 @@
                          :name (format nil "~A-~A" name "message-ready")))
     (setf lock (bt:make-lock (format nil "~A-~A" name "lock")))))
 
+(defmethod should-quit-p ((actor actor))
+  "Returns true if the actor should quit"
+  (with-slots (quitp) actor
+    quitp))
+
 (defmethod run-actor ((actor actor))
   "Runs the actor on the current thread, blocks forever until quit"
-  (with-slots (lock message-ready behavior name quitp thread) actor
+  (with-slots (lock message-ready wait-timeout behavior name quitp thread) actor
     (loop
-      (when quitp
-        (format t "actor ~A quitting" name)
-        (setf thread nil)
-        (return))
-      (let ((msg (recieve-message actor)))
-        (funcall behavior actor msg)))))
+      (bt:with-recursive-lock-held (lock)
+        (when (should-quit-p actor)
+          (format t "recieved actor ~A quitting~%" name)
+          (setf thread nil)
+          (return))
+        (let ((msg (recieve-message actor)))
+          (cond (msg
+                 (format t "actor ~A received message: ~A~%" name msg)
+                 (funcall behavior actor msg))
+                (t (bt:condition-wait message-ready lock
+                                      :timeout wait-timeout))))))))
 
 (defmethod spawn-actor ((actor actor))
   "Runs the actor on a new thread"
@@ -70,31 +84,29 @@
   "Quits the actor, stops the thread if it is running"
   (with-slots (quitp lock name message-ready) actor
     (bt:with-lock-held (lock)
-      (format t "quitting actor ~A~%" name)
+      (format t "sending actor ~A~%" name)
       (setf quitp t)
       (bt:condition-notify message-ready))))
 
 (defmethod send-message ((actor actor) msg)
-  (with-slots (lock message-ready thread queue-front queue-back) actor
+  (with-slots (lock message-ready thread queue-front queue-back name) actor
     (bt:with-lock-held (lock)
       (setf queue-back (cons msg queue-back))
       (bt:condition-notify message-ready)
       (unless (and thread (bt:thread-alive-p thread))
-        (warn "actor thread not started or is not alive")))))
+        (warn "~A thread not started or is not alive" name)))))
 
 (defmethod recieve-message ((actor actor))
   (with-slots (lock message-ready queue-front queue-back) actor
     (bt:with-recursive-lock-held (lock)
-      (loop
-        (cond
-          (queue-front
-           (let ((item (first queue-front)))
-             (setf queue-front (rest queue-front))
-             (return item)))
-          (queue-back
-           (setf queue-front (reverse queue-back)
-                 queue-back '())
-           (return (recieve-message actor)))
-          (t
-           (format t "waiting for next message~%")
-           (bt:condition-wait message-ready lock)))))))
+      ;; TODO move this loop to the runner function
+      (cond
+        (queue-front
+         (let ((item (first queue-front)))
+           (setf queue-front (rest queue-front))
+           item))
+        (queue-back
+         (setf queue-front (reverse queue-back)
+               queue-back '())
+         (recieve-message actor))
+        (t nil)))))

@@ -22,9 +22,14 @@
     (match msg
 
       (:start-game
-       (format t "game started"))
+       (format t "game started~%"))
 
       ((list :join-game player)
-       (pushnew player players))
+       (pushnew player players)
+       (format t "player ~A joined the game~%" (name player)))
+
+      ((list :leave-game player)
+       (setf players (remove player players))
+       (format t "player ~A left the game~%" (name player)))
 
       (t (error "unknown message ~A" msg)))))

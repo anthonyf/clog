@@ -25,9 +25,13 @@
 
 
 (defun on-new-window (body)
-  (let ((player (make-instance 'player-actor :name (string (gensym)))))
+  (let ((player (make-instance 'player-actor :name (string (gensym))
+                               :body body)))
     (send-message player (list :init body))
-    (run-actor player)))
+
+    (run-actor player)
+    (send-message *game* (list :leave-game player))
+    ))
 
 (defun start-demo (&key (host "0.0.0.0") (port *clog-port*))
   (when *game*
@@ -44,6 +48,6 @@
 #+nil
 (loop for thread in (bt:all-threads)
       when (or (str:starts-with? "game-actor" (bt:thread-name thread))
-	       (str:starts-with? "player-actor" (bt:thread-name thread)))
-	do (format t "killing thread ~A~%" (bt:thread-name thread))
-	   (bt:destroy-thread thread))
+               (str:starts-with? "player-actor" (bt:thread-name thread)))
+        do (format t "killing thread ~A~%" (bt:thread-name thread))
+           (bt:destroy-thread thread))

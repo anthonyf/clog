@@ -13,7 +13,15 @@
 (in-package #:clog-demo-5/player-actor)
 
 (defclass player-actor (actor)
-  ((behavior :initform 'player-behavior)))
+  ((behavior :initform 'player-behavior)
+   (body :initarg :body
+	 :initform (error "player-actor must have a body!"))))
+
+(defmethod should-quit-p ((player player-actor))
+  "Returns true if the player should quit"
+  (with-slots (body) player
+    (or (not (validp body))
+	(call-next-method))))
 
 (defun player-behavior (player msg)
   (match msg
